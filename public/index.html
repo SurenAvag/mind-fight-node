@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Testing</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <script type="text/javascript">
+    const socket = new WebSocket('ws://127.0.0.1:8200?username=gago&id=1&threadIds=[1,2,3,4]');
+    socket.onopen = function(event) {
+
+    	// Send an initial message
+    	socket.send('I am the client and I\'m listening!');
+
+    	// Listen for messages
+    	socket.onmessage = function(event) {
+    		console.log('Client received a message',event);
+    	};
+
+    	// Listen for socket closes
+    	socket.onclose = function(event) {
+    		console.log('Client notified socket has closed',event);
+    	};
+
+    	// To close the socket....
+    	//socket.close()
+
+    };
+    console.log(socket)
+      // let socket = io.connect('ws://37.186.66.105:8200/socket.io', {query: 'user=' + JSON.stringify({id:1,username: 'gago', threadsId: [1,2,3,4]})})
+      // setTimeout(() => {
+      //   console.log(socket)
+      // }, 3000)
+    </script>
+  </body>
+</html>
