@@ -1,5 +1,7 @@
 var	rp = require('request-promise');
-redisClient.subscribe('game-created');
+redisClient.subscribe('users-attached-to-game');
+redisClient.subscribe('game-deleted');
+redisClient.subscribe('game-started');
 
 let onlineUsers = [];
 
@@ -7,19 +9,36 @@ redisClient.on("message", function(channel, data) {
 	var dataJson = JSON.parse(data);
 	if(dataJson && dataJson.data){
 		switch(channel){
-            case 'game-created': gameCreated(dataJson.data); break;
+            case 'users-attached-to-game': usersAttachedToGame(dataJson.data); break;
+            case 'game-deleted': gameDeleted(dataJson.data); break;
+            case 'game-started': gameStarted(dataJson.data); break;
 		}
 	}
 });
 
-function gameCreated(data)
+function gameStarted(data) {
+    io.sockets.in(`game::${data.game.id}`).emit('game-started', data);
+}
+
+function gameDeleted(data) {
+    io.sockets.in(`game::${data.game.id}`).emit('game-deleted', data);
+}
+
+function usersAttachedToGame(data)
 {
     let user = onlineUsers.find(val => val.id === data.user.id);
-    if(!user){
-        return;
+    let invitedUser = onlineUsers.find(val => val.id === data.invitedUser.id);
+
+    if(user && io.sockets.connected[user.socketId]) {
+        io.sockets.connected[user.socketId].join(`game::${data.game.id}`);
+        user.games.push(data.game);
     }
 
-    io.sockets.connected[user.socketId].join(`game::${data.game.id}`);
+    if(invitedUser && io.sockets.connected[invitedUser.socketId]) {
+        io.sockets.connected[invitedUser.socketId].join(`game::${data.game.id}`);
+        io.sockets.connected[invitedUser.socketId].emit('game-invitation', data);
+        invitedUser.games.push(data.game);
+    }
 }
 
 io.use(function(socket, next) {
@@ -39,6 +58,7 @@ io.use(function(socket, next) {
     rp(options)
         .then((res) => {
             socket.user = res;
+            socket.user.games = [];
             socket.user.socketId = socket.id;
             next();
         })
@@ -47,6 +67,17 @@ io.use(function(socket, next) {
             next(new Error(err));
         });
 });
+
+function cancelAllUserGames(user) {
+    for(let i in user.games) {
+        let data = {
+            deletedByUser: user,
+            game: user.games[i],
+        };
+        console.log(data);
+        gameDeleted(data);
+    }
+}
 
 io.sockets.on('connection', (socket) => {
     // collections = collections.map((val) => val.id);
@@ -60,6 +91,7 @@ io.sockets.on('connection', (socket) => {
         socket.leave(`user::online`);
         let userIndex = onlineUsers.findIndex(val => val.id === socket.user.id);
         if(userIndex !== -1){
+            cancelAllUserGames(onlineUsers[userIndex]);
             onlineUsers.splice(userIndex, 1);
         }
         io.sockets.in(`user::online`).emit('online-user-list-changed', onlineUsers);
