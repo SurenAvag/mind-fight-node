@@ -68,15 +68,23 @@ io.use(function(socket, next) {
         });
 });
 
-function cancelAllUserGames(user) {
-    for(let i in user.games) {
-        let data = {
-            deletedByUser: user,
-            game: user.games[i],
-        };
-        console.log(data);
-        gameDeleted(data);
-    }
+function disconnected(user) {
+    var options = {
+        uri: `${process.env.REST_CLIENT}me/disconnected?api_token=${user.apiToken}`,
+        headers: {
+            'User-Agent': 'Request-Promise',
+            'Accept': 'application/json',
+        },
+        rejectUnauthorized: false,
+        json: true // Automatically parses the JSON string in the response
+    };
+    rp(options)
+        .then((res) => {
+            console.log(res);
+        })
+        .catch((err) => {
+            console.log('disconnect rejected');
+        });
 }
 
 io.sockets.on('connection', (socket) => {
@@ -91,7 +99,7 @@ io.sockets.on('connection', (socket) => {
         socket.leave(`user::online`);
         let userIndex = onlineUsers.findIndex(val => val.id === socket.user.id);
         if(userIndex !== -1){
-            cancelAllUserGames(onlineUsers[userIndex]);
+            disconnected(onlineUsers[userIndex]);
             onlineUsers.splice(userIndex, 1);
         }
         io.sockets.in(`user::online`).emit('online-user-list-changed', onlineUsers);
