@@ -2,6 +2,7 @@ var	rp = require('request-promise');
 redisClient.subscribe('users-attached-to-game');
 redisClient.subscribe('game-deleted');
 redisClient.subscribe('game-started');
+redisClient.subscribe('game-ended');
 
 let onlineUsers = [];
 
@@ -12,12 +13,18 @@ redisClient.on("message", function(channel, data) {
             case 'users-attached-to-game': usersAttachedToGame(dataJson.data); break;
             case 'game-deleted': gameDeleted(dataJson.data); break;
             case 'game-started': gameStarted(dataJson.data); break;
+            case 'game-ended': gameEnded(dataJson.data); break;
 		}
 	}
 });
 
 function gameStarted(data) {
     io.sockets.in(`game::${data.game.id}`).emit('game-started', data);
+}
+
+function gameEnded(data) {
+    io.sockets.in(`game::${data.gameId}`).emit('game-ended', data);
+    console.log(data);
 }
 
 function gameDeleted(data) {
